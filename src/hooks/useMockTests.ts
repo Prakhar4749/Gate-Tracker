@@ -1,81 +1,40 @@
-import { useEffect, useState } from 'react';
+import { useAppData, useMockTestsCtx } from '../context/AppDataContext';
 import { supabase } from '../lib/supabase';
+import { toast } from 'sonner';
 import type { MockTest } from '../types';
 
-export function useMockTests() {
-  const [data, setData] = useState<MockTest[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  async function fetchMocks() {
-    try {
-      setLoading(true);
-      const { data: mocks, error: mockerr } = await supabase
-        .from('mock_tests')
-        .select('*')
-        .order('test_date', { ascending: false });
-
-      if (mockerr) throw mockerr;
-      setData(mocks || []);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    fetchMocks();
-  }, []);
-
-  return { data, loading, error, refetch: fetchMocks };
-}
+export const useMockTests = useMockTestsCtx;
 
 export function useCreateMockTest() {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function createMock(mock: Omit<MockTest, 'id' | 'created_at'>) {
-    try {
-      setLoading(true);
-      const { data: newMock, error: err } = await supabase
-        .from('mock_tests')
-        .insert(mock)
-        .select()
-        .single();
-      if (err) throw err;
-      return { success: true, data: newMock };
-    } catch (err: any) {
-      setError(err.message);
-      return { success: false, error: err.message };
-    } finally {
-      setLoading(false);
+  const { refresh, optimisticUpdate } = useAppData();
+  return async (mock: Omit<MockTest, 'id' | 'created_at'>) => {
+    const tempId = `temp-${Date.now()}`;
+    optimisticUpdate('mockTests', prev => [
+      { ...mock, id: tempId, created_at: new Date().toISOString() } as MockTest,
+      ...prev,
+    ]);
+    const { error, data } = await supabase.from('mock_tests').insert(mock).select().single();
+    if (error) {
+      toast.error('Failed to save mock test');
+      optimisticUpdate('mockTests', prev => prev.filter(m => m.id !== tempId));
+      return { success: false, error: error.message };
     }
-  }
-
-  return { createMock, loading, error };
+    await refresh('mockTests');
+    return { success: true, data };
+  };
 }
 
 export function useDeleteMockTest() {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function deleteMock(id: string) {
-    try {
-      setLoading(true);
-      const { error: err } = await supabase
-        .from('mock_tests')
-        .delete()
-        .eq('id', id);
-      if (err) throw err;
-      return { success: true };
-    } catch (err: any) {
-      setError(err.message);
-      return { success: false, error: err.message };
-    } finally {
-      setLoading(false);
+  const { refresh, optimisticUpdate } = useAppData();
+  return async (id: string) => {
+    optimisticUpdate('mockTests', prev => prev.filter(m => m.id !== id));
+    const { error } = await supabase.from('mock_tests').delete().eq('id', id);
+    if (error) {
+      toast.error('Failed to delete');
+      await refresh('mockTests');
+      return false;
     }
-  }
-
-  return { deleteMock, loading, error };
+    toast.success('Deleted');
+    return true;
+  };
 }

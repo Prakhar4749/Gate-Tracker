@@ -22,8 +22,8 @@ import { marked } from 'marked';
 
 export default function DailyLog() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const { data: logs, loading: logsLoading, refetch } = useDailyLogs();
-  const { data: subjects, loading: subjectsLoading } = useSubjects();
+  const { dailyLogs: logs, loading: logsLoading } = useDailyLogs();
+  const { subjects, loading: subjectsLoading } = useSubjects();
   const [isFormOpen, setIsFormOpen] = useState(false);
 
   const isLoading = logsLoading || subjectsLoading;
@@ -61,7 +61,7 @@ export default function DailyLog() {
           </DialogTrigger>
           <LogForm 
             selectedDate={format(new Date(), 'yyyy-MM-dd')} 
-            onSuccess={() => { setIsFormOpen(false); refetch(); }} 
+            onSuccess={() => { setIsFormOpen(false); }} 
           />
         </Dialog>
       </div>
@@ -114,7 +114,7 @@ export default function DailyLog() {
                       <LogForm 
                         initialData={dayLog} 
                         selectedDate={formattedSelectedDate} 
-                        onSuccess={() => refetch()} 
+                        onSuccess={() => {}} 
                       />
                     </Dialog>
                   </div>
@@ -139,7 +139,7 @@ export default function DailyLog() {
                     </DialogTrigger>
                     <LogForm 
                       selectedDate={formattedSelectedDate} 
-                      onSuccess={() => refetch()} 
+                      onSuccess={() => {}} 
                     />
                   </Dialog>
                 </div>
@@ -192,9 +192,15 @@ export default function DailyLog() {
                       </div>
                       <div>
                         <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">PYQ Performance</div>
-                        <div className="text-base font-bold text-slate-700 dark:text-slate-300">
-                          Solved <strong>{dayLog.pyqs_solved}</strong> questions, <strong>{dayLog.pyqs_correct}</strong> correct.
-                        </div>
+                        {dayLog.pyqs_solved > 0 ? (
+                          <div className="text-base font-bold text-slate-700 dark:text-slate-300">
+                            Solved <strong>{dayLog.pyqs_solved}</strong> questions, <strong>{dayLog.pyqs_correct}</strong> correct.
+                          </div>
+                        ) : (
+                          <Badge className="bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border-none font-black text-[10px] uppercase tracking-widest py-1 px-3">
+                            📖 Theory session
+                          </Badge>
+                        )}
                       </div>
                     </div>
                   </div>

@@ -1,114 +1,64 @@
-import { useEffect, useState } from 'react';
+import { useAppData, useDailyLogsCtx } from '../context/AppDataContext';
 import { supabase } from '../lib/supabase';
+import { toast } from 'sonner';
 import type { DailyLog } from '../types';
 
-export function useDailyLogs() {
-  const [data, setData] = useState<DailyLog[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  async function fetchLogs() {
-    try {
-      setLoading(true);
-      const { data: logs, error: logerr } = await supabase
-        .from('daily_logs')
-        .select('*, subjects(*), topics(*)')
-        .order('log_date', { ascending: false });
-
-      if (logerr) throw logerr;
-      setData(logs || []);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    fetchLogs();
-  }, []);
-
-  return { data, loading, error, refetch: fetchLogs };
-}
-
-export function useDailyLog(date: string) {
-  const [data, setData] = useState<DailyLog | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  async function fetchLog() {
-    if (!date) return;
-    try {
-      setLoading(true);
-      const { data: log, error: logerr } = await supabase
-        .from('daily_logs')
-        .select('*, subjects(*), topics(*)')
-        .eq('log_date', date)
-        .single();
-
-      if (logerr && logerr.code !== 'PGRST116') throw logerr;
-      setData(log || null);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    fetchLog();
-  }, [date]);
-
-  return { data, loading, error, refetch: fetchLog };
-}
+export const useDailyLogs = useDailyLogsCtx;
 
 export function useCreateDailyLog() {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { refresh, optimisticUpdate } = useAppData();
 
-  async function createLog(log: Omit<DailyLog, 'id' | 'created_at'>) {
-    try {
-      setLoading(true);
-      const { data: newLog, error: err } = await supabase
-        .from('daily_logs')
-        .insert(log)
-        .select()
-        .single();
-      if (err) throw err;
-      return { success: true, data: newLog };
-    } catch (err: any) {
-      setError(err.message);
-      return { success: false, error: err.message };
-    } finally {
-      setLoading(false);
+  return async (log: Omit<DailyLog, 'id' | 'created_at'>) => {
+    const tempId = `temp-${Date.now()}`;
+    optimisticUpdate('dailyLogs', prev => [
+      { ...log, id: tempId, created_at: new Date().toISOString() } as DailyLog,
+      ...prev,
+    ]);
+
+    const { error, data } = await supabase.from('daily_logs').insert(log).select().single();
+
+    if (error) {
+      toast.error('Failed to save log');
+      await refresh('dailyLogs'); // rollback
+      return { success: false, error: error.message };
     }
-  }
-
-  return { createLog, loading, error };
+    await refresh('dailyLogs');
+    return { success: true, data };
+  };
 }
 
 export function useUpdateDailyLog() {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { refresh, optimisticUpdate } = useAppData();
 
-  async function updateLog(id: string, log: Partial<DailyLog>) {
-    try {
-      setLoading(true);
-      const { data: updatedLog, error: err } = await supabase
-        .from('daily_logs')
-        .update(log)
-        .eq('id', id)
-        .select()
-        .single();
-      if (err) throw err;
-      return { success: true, data: updatedLog };
-    } catch (err: any) {
-      setError(err.message);
-      return { success: false, error: err.message };
-    } finally {
-      setLoading(false);
+  return async (id: string, log: Partial<DailyLog>) => {
+    optimisticUpdate('dailyLogs', prev =>
+      prev.map(l => l.id === id ? { ...l, ...log } : l)
+    );
+
+    const { error, data } = await supabase.from('daily_logs').update(log).eq('id', id).select().single();
+
+    if (error) {
+      toast.error('Failed to update log');
+      await refresh('dailyLogs'); // rollback
+      return { success: false, error: error.message };
     }
-  }
+    await refresh('dailyLogs');
+    return { success: true, data };
+  };
+}
 
-  return { updateLog, loading, error };
+export function useDeleteDailyLog() {
+  const { refresh, optimisticUpdate } = useAppData();
+
+  return async (id: string) => {
+    optimisticUpdate('dailyLogs', prev => prev.filter(l => l.id !== id));
+    const { error } = await supabase.from('daily_logs').delete().eq('id', id);
+    if (error) {
+      toast.error('Failed to delete log');
+      await refresh('dailyLogs');
+      return false;
+    }
+    toast.success('Log deleted');
+    return true;
+  };
 }

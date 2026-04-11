@@ -17,14 +17,6 @@ import type { Topic, StatusType } from '../../types';
 import { cn, getStatusColor } from '../../lib/utils';
 import { useUpdateTopicStatus } from '../../hooks/useTopics';
 import { Badge } from '../ui/badge';
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue,
-  SelectPortal
-} from '../ui/select';
 import { Button } from '../ui/button';
 import { Sheet, SheetTrigger } from '../ui/sheet';
 import TopicNotesEditor from './TopicNotesEditor';
@@ -96,19 +88,20 @@ export default function TopicRow({ topic, onStatusChange }: TopicRowProps) {
             {topic.priority}
           </Badge>
 
-          <Select value={topic.status} onValueChange={handleStatusChange} disabled={loading}>
-            <SelectTrigger className={cn("h-8 w-[140px] text-xs font-semibold", getStatusColor(topic.status))}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectPortal>
-              <SelectContent position="popper" className="z-[9999]" style={{ zIndex: 9999 }}>
-                <SelectItem value="not_started">Not Started</SelectItem>
-                <SelectItem value="in_progress">In Progress</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
-                <SelectItem value="needs_revision">Needs Revision</SelectItem>
-              </SelectContent>
-            </SelectPortal>
-          </Select>
+          <select
+            value={topic.status}
+            onChange={(e) => handleStatusChange(e.target.value)}
+            disabled={loading}
+            className={cn(
+              "h-8 px-2 pr-7 rounded-md border border-input bg-background text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-ring dark:bg-slate-900 dark:border-slate-700 cursor-pointer",
+              getStatusColor(topic.status)
+            )}
+          >
+            <option value="not_started">Not Started</option>
+            <option value="in_progress">In Progress</option>
+            <option value="completed">Completed</option>
+            <option value="needs_revision">Needs Revision</option>
+          </select>
 
           <div className="flex items-center gap-1">
             <Sheet>

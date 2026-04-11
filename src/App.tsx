@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { useEffect } from 'react';
+import { AppDataProvider } from './context/AppDataContext';
 import Layout from './components/layout/Layout';
 import Dashboard from './pages/Dashboard';
 import StudyPlan from './pages/StudyPlan';
@@ -20,20 +21,22 @@ function App() {
 
   return (
     <BrowserRouter>
-      <Toaster position="top-right" richColors />
-      <Routes>
-        <Route path="/" element={<Layout />}>
-          <Route index element={<Dashboard />} />
-          <Route path="plan" element={<StudyPlan />} />
-          <Route path="subjects" element={<Subjects />} />
-          <Route path="log" element={<DailyLog />} />
-          <Route path="notes" element={<Notes />} />
-          <Route path="resources" element={<Resources />} />
-          <Route path="mocks" element={<MockTests />} />
-          <Route path="score" element={<ScoreEvaluation />} />
-          <Route path="settings" element={<Settings />} />
-        </Route>
-      </Routes>
+      <AppDataProvider>
+        <Toaster position="top-right" richColors />
+        <Routes>
+          <Route path="/" element={<Layout />}>
+            <Route index element={<Dashboard />} />
+            <Route path="plan" element={<StudyPlan />} />
+            <Route path="subjects" element={<Subjects />} />
+            <Route path="log" element={<DailyLog />} />
+            <Route path="notes" element={<Notes />} />
+            <Route path="resources" element={<Resources />} />
+            <Route path="mocks" element={<MockTests />} />
+            <Route path="score" element={<ScoreEvaluation />} />
+            <Route path="settings" element={<Settings />} />
+          </Route>
+        </Routes>
+      </AppDataProvider>
     </BrowserRouter>
   );
 }

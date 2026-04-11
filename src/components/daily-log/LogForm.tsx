@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -36,13 +36,19 @@ const formSchema = z.object({
   subject_id: z.string().min(1, "Subject is required"),
   topic_id: z.string().nullable(),
   hours_studied: z.number().min(0.5).max(16),
-  pyqs_solved: z.number().min(0),
-  pyqs_correct: z.number().min(0),
+  pyqs_solved: z.number().min(0).optional().nullable(),
+  pyqs_correct: z.number().min(0).optional().nullable(),
   productivity_score: z.number().min(1).max(10),
   mood: z.enum(['great', 'okay', 'tired', 'stressed']),
   notes: z.string().default(''),
   topics_covered: z.array(z.string()).default([])
-}).refine(data => data.pyqs_correct <= data.pyqs_solved, {
+}).refine(data => {
+  if (data.pyqs_solved !== undefined && data.pyqs_solved !== null && 
+      data.pyqs_correct !== undefined && data.pyqs_correct !== null) {
+    return data.pyqs_correct <= data.pyqs_solved;
+  }
+  return true;
+}, {
   message: "Correct PYQs cannot exceed total solved",
   path: ["pyqs_correct"]
 });
@@ -55,9 +61,11 @@ interface LogFormProps {
 
 export default function LogForm({ initialData, selectedDate, onSuccess }: LogFormProps) {
   const { data: subjects = [] } = useSubjects();
-  const { createLog, loading: creating } = useCreateDailyLog();
-  const { updateLog, loading: updating } = useUpdateDailyLog();
+  const { createLog, loading: creating } = useCreateDailyLog() as any;
+  const { updateLog, loading: updating } = useUpdateDailyLog() as any;
   
+  const [isTheoryOnly, setIsTheoryOnly] = useState(false);
+
   const form = useForm({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -74,6 +82,14 @@ export default function LogForm({ initialData, selectedDate, onSuccess }: LogFor
     }
   });
 
+  useEffect(() => {
+    if (initialData) {
+      const theoryOnly = (initialData.pyqs_solved === null || initialData.pyqs_solved === 0)
+        && (initialData.pyqs_correct === null || initialData.pyqs_correct === 0);
+      setIsTheoryOnly(theoryOnly);
+    }
+  }, [initialData]);
+
   const selectedSubjectId = form.watch('subject_id');
   const { data: topics = [] } = useTopics(selectedSubjectId);
   const { resources: subjectResources } = usePracticeResources(selectedSubjectId);
@@ -85,10 +101,16 @@ export default function LogForm({ initialData, selectedDate, onSuccess }: LogFor
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     let res;
+    const finalValues = {
+      ...values,
+      pyqs_solved: isTheoryOnly ? 0 : (values.pyqs_solved || 0),
+      pyqs_correct: isTheoryOnly ? 0 : (values.pyqs_correct || 0),
+    };
+
     if (initialData?.id) {
-      res = await updateLog(initialData.id, values);
+      res = await updateLog(initialData.id, finalValues);
     } else {
-      res = await createLog(values);
+      res = await createLog(finalValues);
     }
 
     if (res.success) {
@@ -139,6 +161,7 @@ export default function LogForm({ initialData, selectedDate, onSuccess }: LogFor
                     <FormLabel>Subject</FormLabel>
                     <select
                       {...field}
+                      value={field.value || ''}
                       onChange={(e) => {
                         field.onChange(e.target.value);
                         form.setValue('topic_id', null);
@@ -194,14 +217,14 @@ export default function LogForm({ initialData, selectedDate, onSuccess }: LogFor
               </div>
             )}
 
-            {/* Row 2: Hours + PYQs Solved + PYQs Correct — three columns */}
-            <div className="grid grid-cols-3 gap-4">
+            {/* Row 2: Hours */}
+            <div className="grid grid-cols-1 gap-4">
               <FormField
                 control={form.control}
                 name="hours_studied"
                 render={({ field }) => (
                   <FormItem className="space-y-1.5">
-                    <FormLabel>Hours</FormLabel>
+                    <FormLabel>Hours Studied</FormLabel>
                     <FormControl>
                       <Input type="number" step="0.5" {...field} onChange={e => field.onChange(parseFloat(e.target.value))} />
                     </FormControl>
@@ -209,37 +232,76 @@ export default function LogForm({ initialData, selectedDate, onSuccess }: LogFor
                   </FormItem>
                 )}
               />
-
-              <FormField
-                control={form.control}
-                name="pyqs_solved"
-                render={({ field }) => (
-                  <FormItem className="space-y-1.5">
-                    <FormLabel>PYQs Solved</FormLabel>
-                    <FormControl>
-                      <Input type="number" {...field} onChange={e => field.onChange(parseInt(e.target.value))} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="pyqs_correct"
-                render={({ field }) => (
-                  <FormItem className="space-y-1.5">
-                    <FormLabel>Correct</FormLabel>
-                    <FormControl>
-                      <Input type="number" {...field} onChange={e => field.onChange(parseInt(e.target.value))} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
             </div>
 
-            {/* Row 3: Mood — full width */}
+            {/* Theory only toggle */}
+            <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+              <div>
+                <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                  Theory only session
+                </p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  No PYQs or practice — just learning new concepts
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={isTheoryOnly}
+                onClick={() => {
+                  const newVal = !isTheoryOnly;
+                  setIsTheoryOnly(newVal);
+                  if (newVal) {
+                    form.setValue('pyqs_solved', 0);
+                    form.setValue('pyqs_correct', 0);
+                  }
+                }}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${
+                  isTheoryOnly
+                    ? 'bg-indigo-600'
+                    : 'bg-slate-300 dark:bg-slate-600'
+                }`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  isTheoryOnly ? 'translate-x-6' : 'translate-x-1'
+                }`} />
+              </button>
+            </div>
+
+            {/* Row 3: PYQs Solved + PYQs Correct — hidden when theory only */}
+            {!isTheoryOnly && (
+              <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-1">
+                <FormField
+                  control={form.control}
+                  name="pyqs_solved"
+                  render={({ field }) => (
+                    <FormItem className="space-y-1.5">
+                      <FormLabel>PYQs Solved</FormLabel>
+                      <FormControl>
+                        <Input type="number" {...field} value={field.value || ''} onChange={e => field.onChange(e.target.value === '' ? null : parseInt(e.target.value))} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="pyqs_correct"
+                  render={({ field }) => (
+                    <FormItem className="space-y-1.5">
+                      <FormLabel>Correct</FormLabel>
+                      <FormControl>
+                        <Input type="number" {...field} value={field.value || ''} onChange={e => field.onChange(e.target.value === '' ? null : parseInt(e.target.value))} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            )}
+
+            {/* Row 4: Mood — full width */}
             <FormField
               control={form.control}
               name="mood"
@@ -264,7 +326,7 @@ export default function LogForm({ initialData, selectedDate, onSuccess }: LogFor
               )}
             />
 
-            {/* Row 4: Productivity Score — full width */}
+            {/* Row 5: Productivity Score — full width */}
             <FormField
               control={form.control}
               name="productivity_score"
@@ -288,7 +350,7 @@ export default function LogForm({ initialData, selectedDate, onSuccess }: LogFor
               )}
             />
 
-            {/* Row 5: Notes — full width */}
+            {/* Row 6: Notes — full width */}
             <FormField
               control={form.control}
               name="notes"

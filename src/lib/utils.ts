@@ -75,3 +75,98 @@ export function getYoutubeThumbnail(url: string | null): string {
   if (id) return `https://img.youtube.com/vi/${id}/mqdefault.jpg`;
   return ''; // playlist fallback — use a colored placeholder
 }
+
+// ── GATE 2026 CSE: Official marks vs rank lookup table ────────────────────
+export const GATE_2026_CSE_MARKS_RANK: Array<{ marks: number; rank: number; score: number }> = [
+  { marks: 100, rank: 1,     score: 1000 },
+  { marks: 90,  rank: 3,     score: 1000 },
+  { marks: 85,  rank: 8,     score: 970  },
+  { marks: 80,  rank: 30,    score: 913  },
+  { marks: 75,  rank: 75,    score: 854  },
+  { marks: 72,  rank: 125,   score: 820  },
+  { marks: 70,  rank: 175,   score: 795  },
+  { marks: 68,  rank: 240,   score: 772  },
+  { marks: 65,  rank: 340,   score: 736  },
+  { marks: 62,  rank: 500,   score: 701  },
+  { marks: 58,  rank: 750,   score: 654  },
+  { marks: 55,  rank: 1050,  score: 619  },
+  { marks: 52,  rank: 1500,  score: 583  },
+  { marks: 50,  rank: 2100,  score: 560  },
+  { marks: 45,  rank: 3200,  score: 501  },
+  { marks: 40,  rank: 5500,  score: 442  },
+  { marks: 35,  rank: 9500,  score: 383  },
+  { marks: 30,  rank: 16000, score: 350  },
+  { marks: 25,  rank: 30000, score: 0    },
+];
+
+// ── Convert raw marks → GATE Score (official formula) ────────────────────
+export function marksToGateScore(rawMarks: number): number {
+  const Mq = 30;  // CSE 2026 qualifying marks
+  const Mt = 85;  // Mean of top 0.1%
+  const Sq = 350; // Score at qualifying mark
+  const St = 900; // Score at top 0.1% mean
+  if (rawMarks < Mq) return 0;
+  const score = Sq + ((St - Sq) / (Mt - Mq)) * (rawMarks - Mq);
+  return Math.round(Math.min(Math.max(score, 0), 1000));
+}
+
+// ── Interpolate rank from raw marks ──────────────────────────────────────
+export function marksToRank(marks: number): number {
+  const table = GATE_2026_CSE_MARKS_RANK;
+  if (marks >= table[0].marks) return 1;
+  if (marks <= table[table.length - 1].marks) return 50000;
+  for (let i = 0; i < table.length - 1; i++) {
+    const high = table[i];
+    const low  = table[i + 1];
+    if (marks <= high.marks && marks >= low.marks) {
+      const ratio = (high.marks - marks) / (high.marks - low.marks);
+      return Math.round(high.rank + ratio * (low.rank - high.rank));
+    }
+  }
+  return 50000;
+}
+
+// ── IIT admission cutoffs ─────────────────────────────────────────────────
+export const IIT_CUTOFFS = [
+  { name: 'IIT Bombay',    minScore: 800, maxScore: 870, minMarks: 68 },
+  { name: 'IIT Delhi',     minScore: 800, maxScore: 860, minMarks: 68 },
+  { name: 'IIT Madras',    minScore: 780, maxScore: 840, minMarks: 66 },
+  { name: 'IIT Kanpur',    minScore: 750, maxScore: 820, minMarks: 63 },
+  { name: 'IIT Kharagpur', minScore: 720, maxScore: 800, minMarks: 61 },
+  { name: 'IIT Roorkee',   minScore: 700, maxScore: 780, minMarks: 59 },
+  { name: 'IIT Guwahati',  minScore: 650, maxScore: 730, minMarks: 54 },
+  { name: 'IIT Hyderabad', minScore: 650, maxScore: 720, minMarks: 54 },
+  { name: 'NIT Trichy',    minScore: 680, maxScore: 750, minMarks: 57 },
+  { name: 'NIT Surathkal', minScore: 640, maxScore: 720, minMarks: 53 },
+];
+
+// ── Which IITs are reachable at this score ────────────────────────────────
+export function getReachableIITs(gateScore: number) {
+  return IIT_CUTOFFS.map(iit => ({
+    ...iit,
+    reachable: gateScore >= iit.minScore,
+    borderline: gateScore >= iit.minScore - 50 && gateScore < iit.minScore,
+    gap: Math.max(0, iit.minScore - gateScore),
+  }));
+}
+
+// ── Confidence level ──────────────────────────────────────────────────────
+export function getConfidenceLevel(
+  mockCount: number,
+  topicsStarted: number,
+  totalTopics: number
+): 'very_low' | 'low' | 'medium' | 'high' {
+  if (mockCount === 0 && topicsStarted === 0) return 'very_low';
+  if (mockCount === 0) return 'low';
+  if (mockCount < 3) return 'medium';
+  return 'high';
+}
+
+// ── Marks gap to target ───────────────────────────────────────────────────
+export function marksGapToScore(targetScore: number): number {
+  // Given a target GATE score, what raw marks are needed?
+  const Mq = 30; const Mt = 85; const Sq = 350; const St = 900;
+  if (targetScore <= Sq) return Mq;
+  const marks = Mq + ((targetScore - Sq) * (Mt - Mq)) / (St - Sq);
+  return Math.round(Math.min(Math.max(marks, 0), 100));
+}
