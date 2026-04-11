@@ -38,7 +38,7 @@ import {
   }, [subjects, activeSubject]);
 
   const { resources, loading: resourcesLoading } = usePracticeResources(activeSubjectId);
-  const { watched, toggleWatched } = useWatchedResources();
+  const { watchedIds: watched, toggleWatched } = useWatchedResources();
 
   const [filter, setFilter] = useState<'all' | 'playlist' | 'video' | 'unwatched'>('all');
   const [search, setSearch] = useState('');
@@ -51,8 +51,8 @@ import {
 
   const filteredResources = useMemo(() => {
     return (resources || []).filter(res => {
-      const matchesSearch = res.url.toLowerCase().includes(search.toLowerCase()) || 
-                           res.subject?.name.toLowerCase().includes(search.toLowerCase());
+      const matchesSearch = (res.url || '').toLowerCase().includes(search.toLowerCase()) || 
+                           (res.subject?.name || '').toLowerCase().includes(search.toLowerCase());
 
       const isWatched = watched.has(res.id);
 

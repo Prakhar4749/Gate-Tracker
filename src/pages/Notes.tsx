@@ -1,6 +1,6 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
-import { useNotes, useCreateNote, useDeleteNote } from '../hooks/useNotes';
+import { useNotes, useCreateNote, useUpdateNote, useDeleteNote } from '../hooks/useNotes';
 import { useSubjects } from '../hooks/useSubjects';
 import NoteList from '../components/notes/NoteList';
 import NoteEditor from '../components/notes/NoteEditor';
@@ -20,16 +20,35 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import type { NoteType } from '../types';
 
+// Simple inline debounce
+function debounce<T extends (...args: any[]) => any>(fn: T, delay: number) {
+  let timer: ReturnType<typeof setTimeout>;
+  return (...args: Parameters<T>) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), delay);
+  };
+}
+
 export default function Notes() {
   const location = useLocation();
-  const { data: notes, loading: notesLoading, refetch } = useNotes();
-  const { data: subjects, loading: subjectsLoading } = useSubjects();
-  const { createNote } = useCreateNote();
-  const { deleteNote } = useDeleteNote();
   
-  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
+  // At the top of the Notes component — call ALL hooks here
+  const createNote = useCreateNote();    // returns a function
+  const updateNote = useUpdateNote();    // returns a function
+  const deleteNote = useDeleteNote();    // returns a function
+  
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
+
+  const filters = useMemo(() => ({
+    search: search || undefined,
+    noteType: typeFilter === 'all' ? undefined : typeFilter
+  }), [search, typeFilter]);
+
+  const { notes, loading: notesLoading, refetch } = useNotes(filters);
+  const { data: subjects, loading: subjectsLoading } = useSubjects();
+  
+  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
 
   const isLoading = notesLoading || subjectsLoading;
 
@@ -39,19 +58,6 @@ export default function Notes() {
       setSelectedNoteId(location.state.noteId);
     }
   }, [location.state]);
-
-  const filteredNotes = useMemo(() => {
-    if (!notes) return [];
-    return notes.filter(n => {
-      const matchesSearch = n.title.toLowerCase().includes(search.toLowerCase()) ||
-                           n.content.toLowerCase().includes(search.toLowerCase()) ||
-                           n.tags.some(t => t.toLowerCase().includes(search.toLowerCase()));
-      
-      const matchesType = typeFilter === 'all' || n.note_type === typeFilter;
-      
-      return matchesSearch && matchesType;
-    });
-  }, [notes, search, typeFilter]);
 
   const selectedNote = useMemo(() => {
     return notes?.find(n => n.id === selectedNoteId);
@@ -65,7 +71,7 @@ export default function Notes() {
       weak_topic: 'Weak Topic Concept'
     };
 
-    const res = await createNote({
+    const newNote = await createNote({
       title: defaultTitles[type],
       content: '',
       subject_id: null,
@@ -75,25 +81,36 @@ export default function Notes() {
       note_type: type
     });
 
-    if (res.success) {
-      setSelectedNoteId(res.data.id);
+    if (newNote) {
+      setSelectedNoteId(newNote.id);
       toast.success(`${type.replace('_', ' ').toUpperCase()} note created`);
-      refetch();
-    } else {
-      toast.error('Failed to create note');
     }
   };
 
-  const handleDeleteNote = async (id: string) => {
+  const handleDelete = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this note?')) {
-      const res = await deleteNote(id);
-      if (res.success) {
+      const success = await deleteNote(id);
+      if (success) {
         toast.success('Note deleted');
         if (selectedNoteId === id) setSelectedNoteId(null);
-        refetch();
       }
     }
   };
+
+  // Auto-save handler (debounced)
+  const handleContentChange = useCallback(
+    debounce(async (id: string, content: string) => {
+      await updateNote(id, { content });
+    }, 1500),
+    [updateNote]
+  );
+
+  const handleTitleChange = useCallback(
+    debounce(async (id: string, title: string) => {
+      await updateNote(id, { title });
+    }, 1000),
+    [updateNote]
+  );
 
   if (isLoading) return <PageSkeleton />;
 
@@ -151,11 +168,11 @@ export default function Notes() {
           </div>
           <div className="flex-1 overflow-y-auto">
             <NoteList 
-              notes={filteredNotes} 
+              notes={notes || []} 
               selectedNoteId={selectedNoteId || undefined}
               onSelectNote={setSelectedNoteId}
               onNewNote={() => handleNewNote('general')}
-              onDeleteNote={handleDeleteNote}
+              onDeleteNote={handleDelete}
               search={search}
               onSearchChange={setSearch}
               subjects={subjects || []}
@@ -169,7 +186,9 @@ export default function Notes() {
             <NoteEditor 
               note={selectedNote} 
               subjects={subjects || []} 
-              onUpdate={refetch} 
+              onUpdate={refetch}
+              onTitleChange={handleTitleChange}
+              onContentChange={handleContentChange}
             />
           ) : (
             <div className="h-full flex flex-col items-center justify-center text-center p-12">

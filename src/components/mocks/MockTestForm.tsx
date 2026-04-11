@@ -49,9 +49,10 @@ interface MockTestFormProps {
 }
 
 export default function MockTestForm({ onSuccess }: MockTestFormProps) {
-  const { createMock, loading } = useCreateMockTest();
+  const createMock = useCreateMockTest();
   const { data: subjects } = useSubjects();
   const [importText, setImportText] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -90,18 +91,21 @@ export default function MockTestForm({ onSuccess }: MockTestFormProps) {
   };
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    const res = await createMock({
-      ...values,
-      notes: values.notes || '',
-      topic_errors: {},
-      raw_import_data: { raw: importText }
-    });
+    setIsSaving(true);
+    try {
+      const res = await createMock({
+        ...values,
+        notes: values.notes || '',
+        topic_errors: {},
+        raw_import_data: { raw: importText }
+      });
 
-    if (res.success) {
-      toast.success('Mock test added!');
-      onSuccess();
-    } else {
-      toast.error(res.error || 'Failed to save');
+      if (res) {
+        toast.success('Mock test added!');
+        onSuccess();
+      }
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -250,8 +254,8 @@ export default function MockTestForm({ onSuccess }: MockTestFormProps) {
               </div>
 
               <DialogFooter>
-                <Button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700" disabled={loading}>
-                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <Button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700" disabled={isSaving}>
+                  {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Save Mock Result
                 </Button>
               </DialogFooter>

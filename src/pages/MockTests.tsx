@@ -23,7 +23,7 @@ import { cn } from '@/lib/utils';
 export default function MockTests() {
   const { data: mocks, loading: mocksLoading, refetch } = useMockTests();
   const { data: subjects, loading: subjectsLoading } = useSubjects();
-  const { deleteMock } = useDeleteMockTest();
+  const deleteMock = useDeleteMockTest();
   const [isFormOpen, setIsFormOpen] = useState(false);
 
   const isLoading = mocksLoading || subjectsLoading;
@@ -37,8 +37,8 @@ export default function MockTests() {
 
   const handleDelete = async (id: string) => {
     if (window.confirm('Delete this mock test result?')) {
-      const res = await deleteMock(id);
-      if (res.success) refetch();
+      const success = await deleteMock(id);
+      if (success) refetch();
     }
   };
 

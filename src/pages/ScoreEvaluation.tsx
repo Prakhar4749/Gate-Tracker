@@ -1,15 +1,9 @@
-import { useMemo } from 'react';
 import { useScoreProjection, useSaveProjection } from '../hooks/useScoreProjection';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import { 
   TrendingUp, 
-  Zap, 
-  AlertCircle, 
-  CheckCircle2, 
-  Clock, 
   RefreshCcw,
   Save,
   Trophy,
@@ -37,9 +31,9 @@ import { GATE_2026_CSE_MARKS_RANK } from '../lib/utils';
 export default function ScoreEvaluation() {
   const { 
     estimatedRawMarks, gateScore, estimatedRank, confidence,
-    marksNeeded, scoreGap, targetScore, targetMarks, mockCount, topicsStarted,
-    totalTopics, reachableIITs, subjectProjections, topGapSubjects,
-    loading, refetch, breakdown
+    mockCount, topicsStarted,
+    reachableIITs, subjectProjections, topGapSubjects,
+    loading, refetch
   } = useScoreProjection();
   
   const { saveProjection, loading: saving } = useSaveProjection();
@@ -89,6 +83,9 @@ export default function ScoreEvaluation() {
   }
 
   const conf = confidenceConfig[confidence as keyof typeof confidenceConfig];
+  const simulationInitialBreakdown = Object.fromEntries(
+    subjectProjections.map(s => [s.subject.short_code, s.projectedMarks])
+  );
 
   return (
     <div className="space-y-8 pb-20">
@@ -275,12 +272,12 @@ export default function ScoreEvaluation() {
           <Card className="border-none shadow-sm bg-white dark:bg-slate-900">
             <CardHeader>
               <CardTitle className="text-base font-black flex items-center gap-2">
-                <AlertCircle className="h-5 w-5 text-rose-500" /> ROI Priority List (Gap Analysis)
+                <Plus className="h-5 w-5 text-rose-500" /> ROI Priority List (Gap Analysis)
               </CardTitle>
               <CardDescription className="text-xs font-medium">Subjects with the highest potential score gain to reach target marks.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Fix these subjects to reach {targetScore} fastest:</p>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Fix these subjects to reach target fastest:</p>
               {topGapSubjects.map((item) => (
                 <div key={item.subject.id} className="p-4 rounded-2xl border border-slate-50 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/30 flex justify-between items-center group hover:border-indigo-200 dark:hover:border-indigo-900 transition-all">
                   <div className="space-y-1">
@@ -289,7 +286,7 @@ export default function ScoreEvaluation() {
                       <Badge variant="secondary" className="text-[8px] font-black px-1.5 py-0">+{item.gap.toFixed(1)} MARKS</Badge>
                     </div>
                     <div className="flex items-center gap-3 text-[9px] font-bold text-slate-500 uppercase tracking-widest">
-                      <span className="flex items-center gap-1"><Clock className="h-3 w-3 text-indigo-500" /> ROI HIGH</span>
+                      <span className="flex items-center gap-1">ROI HIGH</span>
                       <span>Readiness: {Math.round(item.readiness * 100)}%</span>
                     </div>
                   </div>
@@ -342,7 +339,7 @@ export default function ScoreEvaluation() {
           <WhatIfSimulator 
             subjects={subjectProjections.map(s => s.subject)} 
             baseProjectedScore={gateScore} 
-            initialBreakdown={breakdown} 
+            initialBreakdown={simulationInitialBreakdown} 
           />
           
           {/* Section 6 — Score History Chart */}

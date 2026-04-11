@@ -17,10 +17,10 @@ export function useCreateMockTest() {
     if (error) {
       toast.error('Failed to save mock test');
       optimisticUpdate('mockTests', prev => prev.filter(m => m.id !== tempId));
-      return { success: false, error: error.message };
+      return null;
     }
     await refresh('mockTests');
-    return { success: true, data };
+    return data;
   };
 }
 

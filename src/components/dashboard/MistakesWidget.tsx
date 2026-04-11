@@ -8,7 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { startOfWeek, endOfWeek, isWithinInterval, parseISO } from 'date-fns';
 
 export default function MistakesWidget() {
-  const { data: notes } = useNotes({ note_type: 'mistake' });
+  const { data: notes } = useNotes({ noteType: 'mistake' });
   const navigate = useNavigate();
 
   const mistakesThisWeek = useMemo(() => {

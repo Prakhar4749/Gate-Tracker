@@ -20,10 +20,10 @@ export function useCreateDailyLog() {
     if (error) {
       toast.error('Failed to save log');
       await refresh('dailyLogs'); // rollback
-      return { success: false, error: error.message };
+      return null;
     }
     await refresh('dailyLogs');
-    return { success: true, data };
+    return data;
   };
 }
 
@@ -40,10 +40,10 @@ export function useUpdateDailyLog() {
     if (error) {
       toast.error('Failed to update log');
       await refresh('dailyLogs'); // rollback
-      return { success: false, error: error.message };
+      return null;
     }
     await refresh('dailyLogs');
-    return { success: true, data };
+    return data;
   };
 }
 

@@ -45,7 +45,7 @@ const formSchema = z.object({
 }).refine(data => {
   if (data.pyqs_solved !== undefined && data.pyqs_solved !== null && 
       data.pyqs_correct !== undefined && data.pyqs_correct !== null) {
-    return data.pyqs_correct <= data.pyqs_solved;
+    return (data.pyqs_correct || 0) <= (data.pyqs_solved || 0);
   }
   return true;
 }, {
@@ -61,8 +61,9 @@ interface LogFormProps {
 
 export default function LogForm({ initialData, selectedDate, onSuccess }: LogFormProps) {
   const { data: subjects = [] } = useSubjects();
-  const { createLog, loading: creating } = useCreateDailyLog() as any;
-  const { updateLog, loading: updating } = useUpdateDailyLog() as any;
+  const createLog = useCreateDailyLog();
+  const updateLog = useUpdateDailyLog();
+  const [isSaving, setIsSaving] = useState(false);
   
   const [isTheoryOnly, setIsTheoryOnly] = useState(false);
 
@@ -100,24 +101,27 @@ export default function LogForm({ initialData, selectedDate, onSuccess }: LogFor
   );
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    let res;
-    const finalValues = {
-      ...values,
-      pyqs_solved: isTheoryOnly ? 0 : (values.pyqs_solved || 0),
-      pyqs_correct: isTheoryOnly ? 0 : (values.pyqs_correct || 0),
-    };
+    setIsSaving(true);
+    try {
+      let res;
+      const finalValues = {
+        ...values,
+        pyqs_solved: isTheoryOnly ? 0 : (values.pyqs_solved || 0),
+        pyqs_correct: isTheoryOnly ? 0 : (values.pyqs_correct || 0),
+      };
 
-    if (initialData?.id) {
-      res = await updateLog(initialData.id, finalValues);
-    } else {
-      res = await createLog(finalValues);
-    }
+      if (initialData?.id) {
+        res = await updateLog(initialData.id, finalValues);
+      } else {
+        res = await createLog(finalValues);
+      }
 
-    if (res.success) {
-      toast.success(initialData?.id ? 'Log updated!' : 'Log created!');
-      onSuccess();
-    } else {
-      toast.error(res.error || 'Something went wrong');
+      if (res) {
+        toast.success(initialData?.id ? 'Log updated!' : 'Log created!');
+        onSuccess();
+      }
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -374,9 +378,9 @@ export default function LogForm({ initialData, selectedDate, onSuccess }: LogFor
             <Button 
               type="submit" 
               className="w-full bg-indigo-600 hover:bg-indigo-700"
-              disabled={creating || updating}
+              disabled={isSaving}
             >
-              {(creating || updating) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {initialData?.id ? 'Update Log' : 'Save Study Log'}
             </Button>
           </DialogFooter>

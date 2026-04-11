@@ -1,6 +1,6 @@
 import {
   createContext, useContext, useEffect, useRef,
-  useState, useCallback, ReactNode
+  useState, useCallback, type ReactNode
 } from 'react';
 import { supabase } from '../lib/supabase';
 import type {
@@ -102,8 +102,6 @@ const fetchers: Record<TableKey, () => Promise<AppData[TableKey]>> = {
 
 // ── Provider ───────────────────────────────────────────────────────────────
 
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-
 export function AppDataProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<AppData>(defaultData);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
@@ -143,9 +141,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     (async () => {
       // Priority fetch
-      const [subjects, topics] = await Promise.all([
-        fetchers.subjects(), fetchers.topics()
-      ]);
+      const subjects = await fetchers.subjects() as Subject[];
+      const topics = await fetchers.topics() as Topic[];
+      
       setData(prev => ({ ...prev, subjects, topics }));
       setTableLoading('subjects', false);
       setTableLoading('topics', false);
@@ -285,7 +283,7 @@ export function useNotesCtx(filters?: {
 
 export function usePracticeResourcesCtx(subjectId?: string) {
   const { data, loadingTables, refresh } = useAppData();
-  const resources = subjectId
+  const resources = subjectId && subjectId !== 'all'
     ? data.practiceResources.filter(r => r.subject_id === subjectId)
     : data.practiceResources;
 

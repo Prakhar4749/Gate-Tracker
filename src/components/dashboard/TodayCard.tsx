@@ -25,7 +25,7 @@ import { cn } from '@/lib/utils';
 export default function TodayCard() {
   const { data: logs, loading, refetch } = useDailyLogs();
   const { data: subjects } = useSubjects();
-  const { createLog } = useCreateDailyLog();
+  const createLog = useCreateDailyLog();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   // Form State

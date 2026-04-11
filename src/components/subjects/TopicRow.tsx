@@ -28,14 +28,20 @@ interface TopicRowProps {
 }
 
 export default function TopicRow({ topic, onStatusChange }: TopicRowProps) {
-  const { updateStatus, loading } = useUpdateTopicStatus();
+  const updateStatus = useUpdateTopicStatus();
+  const [isLoading, setIsLoading] = useState(false);
   const [showSubtopics, setShowSubtopics] = useState(false);
 
   const handleStatusChange = async (newStatus: string) => {
-    const res = await updateStatus(topic.id, newStatus as StatusType);
-    if (res.success) {
+    setIsLoading(true);
+    try {
+      await updateStatus(topic.id, newStatus as StatusType);
       toast.success(`Updated ${topic.name} to ${newStatus.replace('_', ' ')}`);
       onStatusChange();
+    } catch (err) {
+      toast.error('Failed to update status');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -91,7 +97,7 @@ export default function TopicRow({ topic, onStatusChange }: TopicRowProps) {
           <select
             value={topic.status}
             onChange={(e) => handleStatusChange(e.target.value)}
-            disabled={loading}
+            disabled={isLoading}
             className={cn(
               "h-8 px-2 pr-7 rounded-md border border-input bg-background text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-ring dark:bg-slate-900 dark:border-slate-700 cursor-pointer",
               getStatusColor(topic.status)

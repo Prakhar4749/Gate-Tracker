@@ -154,7 +154,7 @@ export function getReachableIITs(gateScore: number) {
 export function getConfidenceLevel(
   mockCount: number,
   topicsStarted: number,
-  totalTopics: number
+  _totalTopics: number
 ): 'very_low' | 'low' | 'medium' | 'high' {
   if (mockCount === 0 && topicsStarted === 0) return 'very_low';
   if (mockCount === 0) return 'low';

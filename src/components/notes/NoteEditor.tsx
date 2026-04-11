@@ -20,16 +20,17 @@ import { Textarea } from '../ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { ScrollArea } from '../ui/scroll-area';
 import { Badge } from '../ui/badge';
-import { toast } from 'sonner';
 import { cn } from '../../lib/utils';
 
 interface NoteEditorProps {
   note: Note;
   subjects: Subject[];
   onUpdate: () => void;
+  onTitleChange?: (id: string, title: string) => void;
+  onContentChange?: (id: string, content: string) => void;
 }
 
-export default function NoteEditor({ note, subjects, onUpdate }: NoteEditorProps) {
+export default function NoteEditor({ note, subjects, onUpdate, onTitleChange, onContentChange }: NoteEditorProps) {
   const [title, setTitle] = useState(note.title);
   const [content, setContent] = useState(note.content);
   const [subjectId, setSubjectId] = useState(note.subject_id || '');
@@ -38,9 +39,10 @@ export default function NoteEditor({ note, subjects, onUpdate }: NoteEditorProps
   const [tagInput, setTagInput] = useState('');
   const [isDirty, setIsDirty] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [pinning, setPinning] = useState(false);
   
-  const { updateNote } = useUpdateNote();
-  const { togglePin, loading: pinning } = useTogglePin();
+  const updateNote = useUpdateNote();
+  const togglePin = useTogglePin();
   const { data: topics } = useTopics(subjectId);
 
   // Sync state when note changes
@@ -57,7 +59,7 @@ export default function NoteEditor({ note, subjects, onUpdate }: NoteEditorProps
     if (!isDirty && !saveStatus) return;
     
     setSaveStatus('saving');
-    const res = await updateNote(note.id, {
+    const success = await updateNote(note.id, {
       title,
       content,
       subject_id: subjectId || null,
@@ -65,16 +67,15 @@ export default function NoteEditor({ note, subjects, onUpdate }: NoteEditorProps
       tags
     });
 
-    if (res.success) {
+    if (success) {
       setSaveStatus('saved');
       setIsDirty(false);
       onUpdate();
       setTimeout(() => setSaveStatus('idle'), 2000);
     } else {
       setSaveStatus('idle');
-      toast.error('Failed to save note');
     }
-  }, [note.id, title, content, subjectId, topicId, tags, isDirty, updateNote, onUpdate]);
+  }, [note.id, title, content, subjectId, topicId, tags, isDirty, updateNote, onUpdate, saveStatus]);
 
   // Autosave
   useEffect(() => {
@@ -98,6 +99,7 @@ export default function NoteEditor({ note, subjects, onUpdate }: NoteEditorProps
     const newContent = `${before}${prefix}${selection}${suffix}${after}`;
     setContent(newContent);
     setIsDirty(true);
+    if (onContentChange) onContentChange(note.id, newContent);
     
     // Reset focus and selection
     setTimeout(() => {
@@ -177,8 +179,13 @@ export default function NoteEditor({ note, subjects, onUpdate }: NoteEditorProps
             size="icon" 
             className={cn("h-8 w-8", note.is_pinned && "text-amber-500 hover:text-amber-600")}
             onClick={async () => {
-              await togglePin(note.id, note.is_pinned);
-              onUpdate();
+              setPinning(true);
+              try {
+                await togglePin(note.id, note.is_pinned);
+                onUpdate();
+              } finally {
+                setPinning(false);
+              }
             }}
             disabled={pinning}
           >
@@ -192,7 +199,11 @@ export default function NoteEditor({ note, subjects, onUpdate }: NoteEditorProps
         <div className="px-8 pt-6 pb-2">
           <Input 
             value={title} 
-            onChange={(e) => { setTitle(e.target.value); setIsDirty(true); }}
+            onChange={(e) => { 
+              setTitle(e.target.value); 
+              setIsDirty(true); 
+              if (onTitleChange) onTitleChange(note.id, e.target.value);
+            }}
             placeholder="Note Title"
             className="text-3xl font-black border-none focus-visible:ring-0 px-0 h-auto placeholder:text-slate-200 dark:placeholder:text-slate-800"
           />
@@ -234,7 +245,11 @@ export default function NoteEditor({ note, subjects, onUpdate }: NoteEditorProps
             <Textarea 
               id="note-textarea"
               value={content}
-              onChange={(e) => { setContent(e.target.value); setIsDirty(true); }}
+              onChange={(e) => { 
+                setContent(e.target.value); 
+                setIsDirty(true); 
+                if (onContentChange) onContentChange(note.id, e.target.value);
+              }}
               placeholder="Start writing your thoughts..."
               className="w-full h-full resize-none border-none focus-visible:ring-0 p-8 font-mono text-sm leading-relaxed"
             />
@@ -253,7 +268,11 @@ export default function NoteEditor({ note, subjects, onUpdate }: NoteEditorProps
             <div className="grid grid-cols-2 h-full divide-x divide-slate-100 dark:divide-slate-900">
               <Textarea 
                 value={content}
-                onChange={(e) => { setContent(e.target.value); setIsDirty(true); }}
+                onChange={(e) => { 
+                  setContent(e.target.value); 
+                  setIsDirty(true); 
+                  if (onContentChange) onContentChange(note.id, e.target.value);
+                }}
                 className="w-full h-full resize-none border-none focus-visible:ring-0 p-8 font-mono text-sm"
               />
               <ScrollArea className="h-full">

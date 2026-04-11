@@ -6,12 +6,12 @@ import { TARGET_SCORE, CURRENT_SCORE } from '../../lib/constants';
 import { TrendingUp } from 'lucide-react';
 
 export default function ScoreGauge() {
-  const { projectedScore, breakdown, loading } = useScoreProjection();
+  const { gateScore, breakdown, loading } = useScoreProjection();
 
   if (loading) return <Skeleton className="h-[200px] w-full" />;
 
-  const isInitial = projectedScore === 0 || projectedScore === CURRENT_SCORE;
-  const displayScore = isInitial ? CURRENT_SCORE : projectedScore;
+  const isInitial = gateScore === 0 || gateScore === CURRENT_SCORE;
+  const displayScore = isInitial ? CURRENT_SCORE : gateScore;
 
   const data = [
     { name: 'Baseline', value: CURRENT_SCORE, fill: '#f43f5e' },

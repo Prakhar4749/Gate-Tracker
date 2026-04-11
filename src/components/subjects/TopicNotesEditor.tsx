@@ -27,23 +27,26 @@ interface TopicNotesEditorProps {
 export default function TopicNotesEditor({ topicId, topicName, initialNotes, subjectId }: TopicNotesEditorProps) {
   const [notes, setNotes] = useState(initialNotes);
   const [isDirty, setIsDirty] = useState(false);
-  const { updateNotes, loading } = useUpdateTopicNotes();
+  const updateNotes = useUpdateTopicNotes();
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [isLoading, setIsLoading] = useState(false);
   const { resources } = usePracticeResources(subjectId);
 
   const handleSave = useCallback(async () => {
     if (!isDirty) return;
     
     setSaveStatus('saving');
-    const res = await updateNotes(topicId, notes);
-    
-    if (res.success) {
+    setIsLoading(true);
+    try {
+      await updateNotes(topicId, notes);
       setSaveStatus('saved');
       setIsDirty(false);
       setTimeout(() => setSaveStatus('idle'), 2000);
-    } else {
+    } catch (err) {
       setSaveStatus('idle');
       toast.error('Failed to save notes');
+    } finally {
+      setIsLoading(false);
     }
   }, [topicId, notes, isDirty, updateNotes]);
 
@@ -67,7 +70,7 @@ export default function TopicNotesEditor({ topicId, topicName, initialNotes, sub
           <div className="flex items-center gap-2">
             {saveStatus === 'saving' && <Loader2 className="h-4 w-4 animate-spin text-slate-400" />}
             {saveStatus === 'saved' && <CheckCircle className="h-4 w-4 text-emerald-500" />}
-            <Button size="sm" onClick={handleSave} disabled={!isDirty || loading}>
+            <Button size="sm" onClick={handleSave} disabled={!isDirty || isLoading}>
               <Save className="h-4 w-4 mr-2" /> Save
             </Button>
           </div>
